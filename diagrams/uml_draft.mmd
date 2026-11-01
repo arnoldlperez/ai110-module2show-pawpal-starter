@@ -1,5 +1,6 @@
 classDiagram
     %% Draft UML for PawPal+ (Phase 1). Revisit and update in Phase 6.
+    %% PetTask = (Pet, Task) pair. PlanItem = (start "HH:MM", Pet, Task, reason).
 
     class Owner {
         +str name
@@ -9,7 +10,7 @@ classDiagram
         +list~Pet~ pets
         +add_pet(pet: Pet) None
         +remove_pet(name: str) None
-        +get_all_tasks() list~Task~
+        +get_all_tasks() list~PetTask~
     }
 
     class Pet {
@@ -29,18 +30,21 @@ classDiagram
         +str category
         +str preferred_time
         +str frequency
-        +bool completed
-        +mark_complete() None
+        +date last_completed
+        +mark_complete(today: date) None
+        +is_due(today: date) bool
         +priority_rank() int
     }
 
     class Scheduler {
         +Owner owner
-        +generate_plan() list~tuple~
-        +sort_tasks(tasks: list~Task~) list~Task~
-        +filter_tasks(tasks: list~Task~) list~Task~
-        +detect_conflicts(plan: list~tuple~) list~str~
-        +explain_plan(plan: list~tuple~) str
+        +to_minutes(hhmm: str)$ int
+        +to_hhmm(minutes: int)$ str
+        +generate_plan(today: date) list~PlanItem~
+        +sort_tasks(tasks: list~PetTask~) list~PetTask~
+        +filter_tasks(tasks: list~PetTask~) list~PetTask~
+        +detect_conflicts(plan: list~PlanItem~) list~str~
+        +explain_plan(plan: list~PlanItem~) str
     }
 
     Owner "1" o-- "1..*" Pet : has

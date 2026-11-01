@@ -14,13 +14,27 @@ Lastly, the user should be able to ask the app to build today's schedule. The ap
 
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+My initial UML design has four classes, which are Owner, Pet, Task, and Scheduler. An Owner has one or more pets, each Pet has its own list of tasks, and the Scheduler uses the Owner to get to all of the pets and their tasks when it builds a plan.
+
+The Owner class holds the owner's name, how many minutes they have available in a day, when their day starts, and their preferences. It is also responsible for keeping track of their pets, so it can add or remove a pet and gather the tasks from all of them into one list.
+
+The Pet class holds basic details like the pet's name, species, and age, along with the tasks that pet needs. Its job is mostly to add, remove, and return those tasks.
+
+The Task class represents one care activity, such as a walk or a feeding. It stores the title, how long it takes, its priority, a category, an optional preferred time, how often it repeats, and whether it has been completed. It can mark itself as complete and turn its priority into a number so that tasks are easier to sort.
+
+The Scheduler class is where the actual planning happens. It sorts the tasks by priority, filters out the ones that do not fit in the owner's available time, checks for tasks whose times overlap, and then builds the final plan as an ordered list of start times, tasks, and reasons. It can also explain the plan so the owner understands why each task was picked. I used dataclasses for Task, Pet, and Owner since they mainly hold data, as opposed to the Scheduler, which is mostly logic.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Yes, my design changed after I had the AI review the skeleton in pawpal_system.py. I made three changes based on what it pointed out.
+
+The first change was keeping track of which pet each task belongs to. Originally get_all_tasks() just returned one flat list of tasks, which meant that if an owner had two dogs, the plan would only say "Morning walk" without saying which dog it was for. I changed it to return each task paired with its pet, and the plan entries now include the pet as well.
+
+The second change was adding two small helpers to the Scheduler that convert a time like "08:30" into minutes since midnight and back. I was storing times as "HH:MM" strings, which are easy to read but hard to add durations to or compare when checking for overlaps. This way the owner still sees normal times, as opposed to the Scheduler, which does its math on plain numbers.
+
+The third change was replacing the completed flag on Task with a last_completed date and adding an is_due() method. With only a true or false value, a daily task would stay marked as done forever, and a weekly task had no way of knowing whether it was due today. Storing the last date it was done lets the Scheduler figure that out.
+
+The AI also suggested a few smaller cleanups, like checking that priority is a valid value, but I decided to leave those for later since they did not affect the overall structure.
 
 ---
 
