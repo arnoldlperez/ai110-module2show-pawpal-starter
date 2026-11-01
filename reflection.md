@@ -36,14 +36,17 @@ The third change was replacing the completed flag on Task with a last_completed 
 
 The AI also suggested a few smaller cleanups, like checking that priority is a valid value, but I decided to leave those for later since they did not affect the overall structure.
 
+Later on, when I added recurring tasks, I changed the Task class again. The assignment wanted a new task to be created each time a daily or weekly task is completed, so I replaced last_completed with a due_date and a completed flag. Now when a task is marked done, the Scheduler makes a copy of it that is due the next day or the next week and adds it back to the pet. I also renamed the method that cuts tasks to fit the owner's time to fit_to_budget(), so that filter_tasks() could be used for filtering by pet and status instead. The final version of the design is in diagrams/uml_final.mmd.
+
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+My scheduler considers how many minutes the owner has available, the priority of each task, whether a task has a preferred time, and whether the task is actually due today. A task that is already done or is not due until later in the week is left out of the plan, and any task that is overdue still gets included.
+
+I decided that priority should matter the most, since some tasks like medication can affect a pet's health if they get skipped, as opposed to something like brushing that can wait a day. The owner's available time is treated as a hard limit, because the plan is not useful if it asks for more time than the owner has. Preferred times come next, since a lot of pet care happens at set times, like feeding or giving meds, so I place those tasks exactly at their time and fit the flexible ones around them. The owner preferences field is in the Owner class, but in the end the scheduler does not use it, since I could not think of a preference that the priority and preferred time did not already cover.
 
 **b. Tradeoffs**
 
@@ -59,13 +62,19 @@ Another smaller tradeoff is that when two tasks with set times overlap, the sche
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+I used Claude Code in VS Code for most of the project, which included brainstorming the classes, writing the skeleton, implementing the scheduling logic, writing the tests, and connecting everything to the Streamlit app. Early on I told it to stop and ask me whenever it reached a decision, so that I was the one choosing how the system worked as opposed to it making those choices on its own.
+
+The features that helped the most were the skeleton review and having the AI run and check its own work. The review in Phase 1 pointed out that tasks did not know which pet they belonged to and that doing math on "HH:MM" strings would be a problem, which saved me from finding those issues later. Running main.py, pytest, and a headless version of the app after each change also caught real bugs, like two identical tasks being counted as one when the scheduler worked out which tasks were skipped.
+
+The most helpful prompts were the ones where I asked for a few options with the tradeoffs laid out, such as how to place tasks on the clock or how to store recurring tasks. Seeing the options side by side made it easy to pick the one that fit my design.
+
+I kept everything in one chat, but I treated each phase like its own session. Each one started with only that phase's instructions and ended with a commit, so I always knew what the current goal was and what had already been finished. This kept the planning for one phase from mixing with another, like keeping the testing work separate from the scheduling logic.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+One suggestion I did not accept as-is was in Phase 4, when I asked the AI how detect_conflicts() could be simplified. It suggested using itertools.combinations to loop over every pair of tasks, which is more Pythonic, but it is harder to follow if you do not already know that function, and it was not any faster. I decided to keep my nested loops since they make it clear how the pairs are formed. For the open slot method I did take its simpler version, since that one was both shorter and easier to read. I also turned down a few of the smaller cleanups from the skeleton review, like validating the priority value, since they did not change the structure of the system.
+
+To verify what the AI suggested, I ran main.py and the tests after each change and checked that the output made sense. When the open slot method was rewritten, I also tested it with a few cases, like busy times that were out of order or overlapping, to make sure it still picked the right start times.
 
 ---
 
@@ -89,12 +98,12 @@ If I had more time, I would test what happens when a schedule runs past midnight
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+I am most satisfied with how the scheduler explains itself. Every task in the plan has a short reason next to it, tasks that did not fit are listed as opposed to just disappearing, and overlapping times show up as a warning. I think that makes the app feel more trustworthy to a pet owner, since they can see why the plan looks the way it does. I am also happy with the recurring tasks, since marking a walk as done in the app actually creates tomorrow's walk.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+If I had another iteration, I would add input validation, so a misspelled priority or a badly typed time gives a clear error. I would also either use the owner preferences field or remove it, since right now it does not do anything. Another thing is that removing a task removes every task with that title, which includes its completed history, so I would change it to remove only the one the user clicked. In hindsight, I would also save the data to a file, since everything is lost when the Streamlit session ends.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+The main thing I learned is that being the lead architect means making the design decisions yourself, even when the AI can write the code faster than you can. The AI was very good at writing and testing code once I knew what I wanted, but questions like how recurring tasks should work or whether a simpler version was actually easier to read still needed me to decide. Having a clear UML and skeleton before any real code was written also made it much easier to tell when a suggestion did not fit the design.

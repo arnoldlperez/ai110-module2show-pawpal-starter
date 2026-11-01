@@ -1,30 +1,21 @@
-# PawPal+ (Module 2 Project)
+# 🐾 PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+PawPal+ is a pet care planner built with Python and Streamlit. An owner enters how much time they have, adds their pets and each pet's care tasks (walks, feedings, meds, grooming, and so on), and PawPal+ builds a daily schedule that fits the most important tasks into that time, explains why each task was picked, and warns about overlapping times.
 
-## Scenario
+The logic lives in `pawpal_system.py` and was built and verified "CLI-first" with `main.py` and `pytest` before being connected to the Streamlit UI in `app.py`.
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+## ✨ Features
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+- **Owners with multiple pets:** each pet keeps its own task list, and the scheduler plans across all of them.
+- **Priority-based planning:** tasks are chosen high → medium → low priority until the owner's available minutes run out. Tasks that don't fit are listed as skipped, not silently dropped.
+- **Fixed and flexible times:** tasks with a preferred time are placed exactly there. Flexible tasks fill the earliest open gap from the start of the owner's day.
+- **Sorting by time:** task lists are shown in chronological order, with flexible tasks last.
+- **Filtering:** view tasks for one pet, by status (to do / done), or both.
+- **Daily and weekly recurrence:** marking a recurring task done automatically creates its next occurrence (tomorrow, or in 7 days). One-off tasks just stay done.
+- **Conflict warnings:** any two planned tasks whose time ranges overlap (including exact same start times) produce a readable warning instead of an error.
+- **Explained plans:** every scheduled task comes with a short reason, such as "high priority, scheduled at its preferred time".
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
-
-## What you will build
-
-Your final app should:
-
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
-
-## Getting started
-
-### Setup
+## 🚀 Getting started
 
 ```bash
 python -m venv .venv
@@ -32,19 +23,35 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Suggested workflow
+Run the app:
 
-1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships).
-3. Convert UML into Python class stubs (no logic yet).
-4. Implement scheduling logic in small increments.
-5. Add tests to verify key behaviors.
-6. Connect your logic to the Streamlit UI in `app.py`.
-7. Refine UML so it matches what you actually built.
+```bash
+streamlit run app.py
+```
+
+Run the CLI demo:
+
+```bash
+python main.py
+```
+
+## 📁 Project structure
+
+| File | Purpose |
+|------|---------|
+| `pawpal_system.py` | Logic layer: `Task`, `Pet`, `Owner`, and `Scheduler` |
+| `app.py` | Streamlit UI that uses the logic layer |
+| `main.py` | CLI demo script |
+| `tests/test_pawpal.py` | Automated tests (pytest) |
+| `diagrams/uml_draft.mmd` | Initial UML class diagram (Phase 1) |
+| `diagrams/uml_final.mmd` | Final UML class diagram matching the code |
+| `reflection.md` | Design and AI-collaboration reflection |
+
+## 📐 Architecture
+
+The final class diagram is in [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd). An `Owner` has one or more `Pet`s, each `Pet` has zero or more `Task`s, and the `Scheduler` reads the owner's pets and tasks to build a plan. When a recurring task is completed, the `Scheduler` asks the `Task` for its next occurrence and adds it back to the `Pet`.
 
 ## 🖥️ Sample Output
-
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
 
 Output of `python main.py`:
 
@@ -145,12 +152,51 @@ All 21 tests pass and cover the main scheduling behaviors and edge cases. I'm no
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### Main UI features
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+- **Owner:** set the owner's name, minutes available today, and when the day starts.
+- **Pets:** add a pet with a name, species, and age. Blank and duplicate names are rejected. A table shows each pet and how many tasks it has.
+- **Add a task:** pick the pet, then enter the title, category, frequency (daily / weekly / once), duration, priority, and an optional preferred time.
+- **Task list:** filter by pet and by status (To do / Done / All). The list is sorted by preferred time. Each due task has a **Done** button, future tasks show their due date, and every task has a **Remove** button.
+- **Build Schedule:** **Generate schedule** shows today's plan as a table with start, end, pet, task, priority, and the reason it was chosen, plus any conflict warnings, a note about tasks that didn't fit, and a plain-text explanation.
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### Example workflow
+
+1. Open the app with `streamlit run app.py`. Set the owner to Jordan with 90 minutes available, starting at 07:00.
+2. Add two pets: **Mochi** (dog) and **Luna** (cat).
+3. Add tasks for Mochi: *Morning walk* (30 min, high, 08:00), *Breakfast* (10 min, medium, 07:30), and *Bath* (45 min, low, weekly, flexible).
+4. Add tasks for Luna: *Thyroid meds* (5 min, high, 07:30), *Brush coat* (15 min, low, flexible), and *Dinner* (10 min, medium, 18:00).
+5. Look at the task list. It's sorted by time (07:30, 07:30, 08:00, 18:00, then the flexible tasks). Set **Show pet** to Luna to see only Luna's tasks.
+6. Click **Done** on Mochi's Morning walk. A success message says the next walk is due tomorrow, and the new walk appears in the list with that due date.
+7. Click **Generate schedule**. The walk is no longer in today's plan, so the freed-up time lets the Bath fit. Flexible tasks are placed in open gaps (Brush coat at 07:00, Bath at 07:40).
+8. A warning appears above the plan: *Luna's Thyroid meds (07:30-07:35) overlaps Mochi's Breakfast (07:30-07:40). Consider moving one of these tasks to a different time.*
+
+### Key Scheduler behaviors shown
+
+- **Sorting:** `sort_by_time()` orders the task list, and the plan comes out in time order.
+- **Filtering:** `filter_tasks()` drives the pet and status dropdowns.
+- **Recurrence:** `mark_task_complete()` creates the next daily or weekly occurrence.
+- **Time budget:** `fit_to_budget()` drops lower-priority tasks first when time runs out.
+- **Conflict warnings:** `detect_conflicts()` flags the overlapping 07:30 tasks.
+
+### Sample CLI output
+
+The same scenario run through `python main.py`. The full output, including the sorting, filtering, and recurrence steps, is in the Sample Output section above.
+
+```
+Today's Schedule for Jordan (85 of 90 min used)
+------------------------------------------------------------
+  07:00-07:15  Luna     Brush coat         (15 min)
+               why: low priority, placed in the first open slot
+  07:30-07:35  Luna     Thyroid meds       (5 min)
+               why: high priority, scheduled at its preferred time
+  07:30-07:40  Mochi    Breakfast          (10 min)
+               why: medium priority, scheduled at its preferred time
+  07:40-08:25  Mochi    Bath               (45 min)
+               why: low priority, placed in the first open slot
+  18:00-18:10  Luna     Dinner             (10 min)
+               why: medium priority, scheduled at its preferred time
+
+Conflicts:
+  WARNING: Luna's Thyroid meds (07:30-07:35) overlaps Mochi's Breakfast (07:30-07:40)
+```

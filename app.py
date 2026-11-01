@@ -87,36 +87,80 @@ else:
                 )
                 st.success(f"Added {task_title.strip()} for {pet.name}.")
 
-    all_tasks = owner.get_all_tasks()
-    if all_tasks:
-        st.table(
-            [
-                {
-                    "pet": pet.name,
-                    "task": task.title,
-                    "minutes": task.duration_minutes,
-                    "priority": task.priority,
-                    "time": task.preferred_time or "flexible",
-                    "frequency": task.frequency,
-                }
-                for pet, task in all_tasks
-            ]
-        )
-    else:
+    scheduler = Scheduler(owner)
+
+    def complete_task(pet: Pet, task: Task) -> None:
+        """Button callback: mark a task done and report when it comes back."""
+        next_task = scheduler.mark_task_complete(pet, task, date.today())
+        if next_task:
+            st.session_state.flash = f"Completed {pet.name}'s {task.title}. Next one is due {next_task.due_date}."
+        else:
+            st.session_state.flash = f"Completed {pet.name}'s {task.title}."
+
+    def remove_task(pet: Pet, task: Task) -> None:
+        """Button callback: remove a task from its pet."""
+        pet.remove_task(task.title)
+        st.session_state.flash = f"Removed {task.title} from {pet.name}."
+
+    # Callbacks run before the rerun, so the message from the last click shows here.
+    if "flash" in st.session_state:
+        st.success(st.session_state.pop("flash"))
+
+    col1, col2 = st.columns(2)
+    with col1:
+        pet_filter = st.selectbox("Show pet", ["All pets"] + [p.name for p in owner.pets])
+    with col2:
+        status_filter = st.selectbox("Show status", ["To do", "Done", "All"])
+
+    completed = {"To do": False, "Done": True, "All": None}[status_filter]
+    shown = scheduler.sort_by_time(
+        scheduler.filter_tasks(pet_name=None if pet_filter == "All pets" else pet_filter, completed=completed)
+    )
+
+    if not owner.get_all_tasks():
         st.info("No tasks yet. Add one above.")
+    elif not shown:
+        st.info("No tasks match these filters.")
+    else:
+        st.caption("Sorted by preferred time. Flexible tasks are listed last.")
+        widths = [1.1, 1, 2, 1, 1.4, 1, 1]
+        header = st.columns(widths)
+        for col, label in zip(header, ["Time", "Pet", "Task", "Min", "Priority / repeat", "", ""]):
+            col.markdown(f"**{label}**")
+        for pet, task in shown:
+            cols = st.columns(widths)
+            cols[0].write(task.preferred_time or "flexible")
+            cols[1].write(pet.name)
+            cols[2].write(f"~~{task.title}~~" if task.completed else task.title)
+            cols[3].write(str(task.duration_minutes))
+            cols[4].write(f"{task.priority} / {task.frequency}")
+            key = id(task)
+            if task.is_due(date.today()):
+                cols[5].button("Done", key=f"done_{key}", on_click=complete_task, args=(pet, task))
+            elif not task.completed:
+                cols[5].caption(f"due {task.due_date:%b %d}")
+            cols[6].button("Remove", key=f"remove_{key}", on_click=remove_task, args=(pet, task))
 
 st.divider()
 
 st.subheader("Build Schedule")
+st.caption("Uses tasks that are due today and not done yet.")
 if st.button("Generate schedule", type="primary"):
     scheduler = Scheduler(owner)
     plan = scheduler.generate_plan(date.today())
+    conflicts = scheduler.detect_conflicts(plan)
 
     if not plan:
         st.info("Nothing to schedule. Add some tasks first, or check your available minutes.")
     else:
         used = sum(task.duration_minutes for _, _, task, _ in plan)
-        st.markdown(f"**Today's plan for {owner.name}** ({used} of {owner.available_minutes} min used)")
+        if conflicts:
+            # Shown above the plan so the owner sees it before reading the times.
+            for conflict in conflicts:
+                st.warning(f"⚠️ Time overlap: {conflict}. Consider moving one of these tasks to a different time.")
+        else:
+            st.success(f"Plan ready for {owner.name}: {len(plan)} tasks, {used} of {owner.available_minutes} min used.")
+
         st.table(
             [
                 {
@@ -124,16 +168,16 @@ if st.button("Generate schedule", type="primary"):
                     "end": Scheduler.to_hhmm(Scheduler.to_minutes(start) + task.duration_minutes),
                     "pet": pet.name,
                     "task": task.title,
+                    "priority": task.priority,
                     "why": reason,
                 }
                 for start, pet, task, reason in plan
             ]
         )
 
-    for pet, task in scheduler.skipped:
-        st.warning(f"Skipped {pet.name}'s {task.title} ({task.duration_minutes} min): not enough time left.")
-    for conflict in scheduler.detect_conflicts(plan):
-        st.error(f"Conflict: {conflict}")
+    if scheduler.skipped:
+        skipped = ", ".join(f"{pet.name}'s {task.title} ({task.duration_minutes} min)" for pet, task in scheduler.skipped)
+        st.info(f"Didn't fit in today's time: {skipped}. Lower-priority tasks are dropped first.")
 
     with st.expander("Plain-text explanation"):
         st.code(scheduler.explain_plan(plan), language=None)
