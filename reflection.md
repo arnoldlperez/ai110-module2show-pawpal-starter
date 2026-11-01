@@ -73,13 +73,15 @@ Another smaller tradeoff is that when two tasks with set times overlap, the sche
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+I tested the main behaviors of the scheduler, which were sorting, recurring tasks, conflict detection, and fitting tasks into the owner's available time. For sorting, I checked that tasks come back in order by time with the flexible ones at the end, and that the final plan is in time order. For recurring tasks, I checked that completing a daily task creates a new one for the next day, a weekly task comes back in seven days, and a one-time task does not repeat. For conflicts, I tested two tasks at the exact same time and two tasks that overlap, and I also made sure that back-to-back tasks, like a walk ending at 8:30 and breakfast starting at 8:30, are not flagged.
+
+I also added a few edge cases, like an owner with no pets, a pet with no tasks, and an owner with zero minutes available, to make sure the app gives an empty plan as opposed to crashing. These tests were important since the scheduler makes a lot of small decisions on its own, and a mistake in one of them, like a task repeating on the wrong day, would be easy to miss just by looking at the output. I used a fixed date in the tests so they give the same result no matter what day they are run.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+I would give my scheduler a 4 out of 5. All 21 tests pass, and they cover the behaviors I think matter most to a pet owner. I am not fully confident yet since the Streamlit side of the app is not covered by any automated tests, and the app does not check for bad input, such as a misspelled priority or a time typed in the wrong format.
+
+If I had more time, I would test what happens when a schedule runs past midnight, since the time math currently assumes everything happens in one day. I would also test a task that is longer than the owner's whole day and a weekly task that is completed late, to see if the next due date still makes sense.
 
 ---
 

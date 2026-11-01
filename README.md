@@ -99,19 +99,37 @@ Conflicts:
 
 ## 🧪 Testing PawPal+
 
-```bash
-# Run the full test suite:
-pytest
+Run the full test suite from the project folder:
 
-# Run with coverage:
-pytest --cov
+```bash
+python -m pytest
 ```
+
+The tests in `tests/test_pawpal.py` cover:
+
+- **Sorting:** `sort_by_time()` returns tasks in chronological order with flexible tasks last, `sort_tasks()` orders by priority, and the final plan comes out in time order.
+- **Recurring tasks:** completing a daily task creates a new one due tomorrow, a weekly task repeats in 7 days, and a "once" task doesn't repeat. Completed tasks drop out of today's plan, and overdue tasks are still scheduled.
+- **Conflict detection:** two tasks at the exact same time are flagged, overlapping durations are flagged, and back-to-back tasks (08:00–08:30, then 08:30) are not.
+- **Filtering and time budget:** filtering by pet and/or completion status works. A task that doesn't fit is skipped while smaller tasks still fit, and 0 available minutes gives an empty plan.
+- **Edge cases:** an owner with no pets, a pet with no tasks, flexible tasks filling gaps around fixed tasks, and two identical tasks counted separately.
 
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts =============================
+platform win32 -- Python 3.13.15, pytest-9.1.1, pluggy-1.6.0
+rootdir: D:\Documents AP\FAU\CEN4010\CodePath\Week_4\ai110-module2show-pawpal-starter
+plugins: anyio-4.15.1
+collected 21 items
+
+tests\test_pawpal.py .....................                               [100%]
+
+============================= 21 passed in 0.06s ==============================
 ```
+
+**Confidence Level:** ★★★★☆ (4/5)
+
+All 21 tests pass and cover the main scheduling behaviors and edge cases. I'm not giving it 5 stars because the Streamlit UI isn't covered by automated tests, invalid input (like a misspelled priority or a badly formatted time) isn't validated, and schedules that run past midnight aren't handled.
 
 ## 📐 Smarter Scheduling
 
