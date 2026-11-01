@@ -64,7 +64,7 @@ else:
             task_pet = st.selectbox("Pet", [p.name for p in owner.pets])
             task_title = st.text_input("Task title", value="Morning walk")
             category = st.selectbox("Category", ["walk", "feeding", "meds", "grooming", "enrichment", "other"])
-            frequency = st.selectbox("Frequency", ["daily", "weekly"])
+            frequency = st.selectbox("Frequency", ["daily", "weekly", "once"])
         with col2:
             duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
             priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)

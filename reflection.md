@@ -47,8 +47,11 @@ The AI also suggested a few smaller cleanups, like checking that priority is a v
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+One tradeoff my scheduler makes is how it decides which tasks fit in the owner's available time. It goes through the tasks from highest to lowest priority and keeps each one if there is still enough time left, and if a task does not fit, it skips it and moves on to the next one. This means it does not try every possible combination to find the one that uses the most time. For example, with 90 minutes available it might skip a 45 minute bath and fill the time with smaller tasks instead, even if a different mix would have used the time a bit better.
+
+I think this is reasonable for a pet owner since the most important tasks, like medication or a walk, always get picked first, and the result is easy to explain. If the app told someone it dropped their dog's walk to squeeze in two grooming tasks because the math worked out better, that would be confusing. A pet owner only has a handful of tasks in a day, so the small amount of time that might be wasted is not really an issue.
+
+Another smaller tradeoff is that when two tasks with set times overlap, the scheduler only shows a warning as opposed to moving one of them. I decided to leave that choice to the owner, since they know which task can actually be moved.
 
 ---
 

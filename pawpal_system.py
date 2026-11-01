@@ -1,9 +1,11 @@
 """PawPal+ logic layer: classes for owners, pets, care tasks, and the scheduler."""
 
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import dataclass, field, replace
+from datetime import date, timedelta
 
 PRIORITY_RANKS = {"high": 3, "medium": 2, "low": 1}
+# How many days until the next occurrence of a recurring task.
+RECURRENCE_DAYS = {"daily": 1, "weekly": 7}
 
 
 @dataclass
@@ -15,21 +17,24 @@ class Task:
     priority: str  # "low", "medium", or "high"
     category: str = "other"  # e.g. "walk", "feeding", "meds", "grooming"
     preferred_time: str | None = None  # "HH:MM", optional
-    frequency: str = "daily"  # "daily" or "weekly"
-    last_completed: date | None = None
+    frequency: str = "daily"  # "once", "daily", or "weekly"
+    due_date: date = field(default_factory=date.today)
+    completed: bool = False
 
-    def mark_complete(self, today: date) -> None:
-        """Record that this task was done on the given day."""
-        self.last_completed = today
+    def mark_complete(self) -> None:
+        """Mark this task as done."""
+        self.completed = True
 
     def is_due(self, today: date) -> bool:
-        """Return True if the task still needs doing, based on frequency and last_completed."""
-        if self.last_completed is None:
-            return True
-        days_since = (today - self.last_completed).days
-        if self.frequency == "weekly":
-            return days_since >= 7
-        return days_since >= 1
+        """Return True if the task isn't done yet and is due today or overdue."""
+        return not self.completed and self.due_date <= today
+
+    def next_occurrence(self, today: date) -> "Task | None":
+        """Return a fresh copy due on the next day/week, or None for one-off tasks."""
+        days = RECURRENCE_DAYS.get(self.frequency)
+        if days is None:
+            return None
+        return replace(self, due_date=today + timedelta(days=days), completed=False)
 
     def priority_rank(self) -> int:
         """Return a number for sorting: high=3, medium=2, low=1."""
@@ -109,8 +114,10 @@ class Scheduler:
         """Build today's plan from the tasks that are due, in order."""
         due = [(pet, task) for pet, task in self.owner.get_all_tasks() if task.is_due(today)]
         ordered = self.sort_tasks(due)
-        chosen = self.filter_tasks(ordered)
-        self.skipped = [pt for pt in ordered if pt not in chosen]
+        chosen = self.fit_to_budget(ordered)
+        # Compare by identity, since two tasks with the same fields are still separate tasks.
+        chosen_ids = {id(task) for _, task in chosen}
+        self.skipped = [(pet, task) for pet, task in ordered if id(task) not in chosen_ids]
 
         plan: list[PlanItem] = []
         busy: list[tuple[int, int]] = []  # (start, end) in minutes
@@ -137,13 +144,10 @@ class Scheduler:
     def _first_open_slot(self, duration: int, busy: list[tuple[int, int]]) -> int:
         """Return the earliest start at or after day_start that doesn't overlap a busy slot."""
         start = self.to_minutes(self.owner.day_start)
-        moved = True
-        while moved:
-            moved = False
-            for busy_start, busy_end in busy:
-                if start < busy_end and start + duration > busy_start:
-                    start = busy_end
-                    moved = True
+        for busy_start, busy_end in sorted(busy):
+            if start + duration <= busy_start:
+                break  # fits in the gap before this busy slot
+            start = max(start, busy_end)
         return start
 
     def sort_tasks(self, tasks: list[PetTask]) -> list[PetTask]:
@@ -155,7 +159,30 @@ class Scheduler:
 
         return sorted(tasks, key=key)
 
-    def filter_tasks(self, tasks: list[PetTask]) -> list[PetTask]:
+    def sort_by_time(self, tasks: list[PetTask]) -> list[PetTask]:
+        """Order tasks by preferred time, earliest first, with flexible (no time) tasks last."""
+        # "HH:MM" strings are zero-padded, so comparing them as text gives the same order as
+        # comparing the times. The True/False first item pushes flexible tasks to the end.
+        return sorted(tasks, key=lambda pt: (pt[1].preferred_time is None, pt[1].preferred_time or ""))
+
+    def filter_tasks(self, pet_name: str | None = None, completed: bool | None = None) -> list[PetTask]:
+        """Return the owner's tasks, optionally only for one pet and/or one completion status."""
+        return [
+            (pet, task)
+            for pet, task in self.owner.get_all_tasks()
+            if (pet_name is None or pet.name == pet_name)
+            and (completed is None or task.completed == completed)
+        ]
+
+    def mark_task_complete(self, pet: Pet, task: Task, today: date) -> Task | None:
+        """Mark a task done and, if it repeats, add its next occurrence to the pet. Returns the new task."""
+        task.mark_complete()
+        next_task = task.next_occurrence(today)
+        if next_task is not None:
+            pet.add_task(next_task)
+        return next_task
+
+    def fit_to_budget(self, tasks: list[PetTask]) -> list[PetTask]:
         """Keep only the tasks that fit in the owner's available time (expects sorted input)."""
         remaining = self.owner.available_minutes
         kept = []

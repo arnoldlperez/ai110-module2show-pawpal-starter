@@ -4,13 +4,14 @@ from pawpal_system import Pet, Task
 
 
 def test_mark_complete_changes_status():
-    task = Task("Morning walk", 30, "high")
     today = date(2026, 11, 1)
+    task = Task("Morning walk", 30, "high", due_date=today)
+    assert not task.completed
     assert task.is_due(today)
 
-    task.mark_complete(today)
+    task.mark_complete()
 
-    assert task.last_completed == today
+    assert task.completed
     assert not task.is_due(today)
 
 
